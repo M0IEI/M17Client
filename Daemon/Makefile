@@ -1,14 +1,14 @@
-# To use HamLib to control the radio, add -DUSE_HAMLIB to the CFLAGS line and add -lhamlib to the LIBS line
-#
 # To use GPSD to transmit GPS data, add -DUSE_GPSD to the CFLAGS line
 #
-# To use GPIO for PTT, add -DUSE_GPIO to the CFLAGS line and add -lgpiod to the LIBS line
+# To disable HamLib to control the radio, remove -DUSE_HAMLIB from the CFLAGS line and remove -lhamlib to the LIBS line
+#
+# To disable GPIO for PTT, remove -DUSE_GPIO from the CFLAGS line and remove -lgpiod to the LIBS line
 #
 
 CC      = cc
 CXX     = c++
-CFLAGS  = -g -O3 -Wall -std=c++0x -pthread
-LIBS    = -lpthread -lutil -lasound -lsamplerate
+CFLAGS  = -g -O3 -Wall -std=c++0x -pthread -DUSE_HAMLIB -DUSE_GPIO
+LIBS    = -lpthread -lutil -lasound -lsamplerate -lhamblib -lgpiod
 LDFLAGS = -g
 
 OBJECTS = \
