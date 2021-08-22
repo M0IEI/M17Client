@@ -2,7 +2,7 @@
 #
 # To disable HamLib to control the radio, remove -DUSE_HAMLIB from the CFLAGS line and remove -lhamlib to the LIBS line
 #
-# To disable GPIO for PTT, remove -DUSE_GPIO from the CFLAGS line and remove -lgpiod to the LIBS line
+# To disable GPIO for PTT, remove -DUSE_GPIO from the CFLAGS line and remove -lgpiod from the LIBS line
 #
 
 CC      = cc
