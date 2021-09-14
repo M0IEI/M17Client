@@ -8,7 +8,7 @@
 CC      = cc
 CXX     = c++
 CFLAGS  = -g -O3 -Wall -std=c++0x -pthread -DUSE_HAMLIB -DUSE_GPIO
-LIBS    = -lpthread -lutil -lasound -lsamplerate -lhamblib -lgpiod
+LIBS    = -lpthread -lutil -lasound -lsamplerate -lhamlib -lgpiod
 LDFLAGS = -g
 
 OBJECTS = \
