@@ -48,8 +48,14 @@ public:
 	void           setVolume(unsigned int value);
 	unsigned int   getVolume() const;
 	
-	void           setMicGain(unsigned int value);
-	unsigned int   getMicGain() const;
+//PANTALLA
+	unsigned int   getDimLevel() const;
+	unsigned int   getDimTime() const;	
+//
+
+	bool           getMetric() const;
+
+
 
 	bool write();
 
@@ -58,6 +64,7 @@ private:
 	bool           m_daemon;
 	std::string    m_screenPort;
 	unsigned int   m_screenSpeed;
+
 	std::string    m_daemonAddress;
 	unsigned short m_daemonPort;
 	std::string    m_selfAddress;
@@ -65,7 +72,11 @@ private:
 	std::string    m_channel;
 	std::string    m_destination;
 	unsigned int   m_volume;
-	unsigned int   m_micGain;
+	bool           m_metric;
+	//PANTALLA
+	unsigned int   m_dimLevel;
+	unsigned int	m_dimTime;
+//
 };
 
 #endif

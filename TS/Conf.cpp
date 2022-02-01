@@ -33,8 +33,9 @@ const std::string KEY_SELF_PORT      = "SelfPort";
 const std::string KEY_CHANNEL        = "Channel";
 const std::string KEY_DESTINATION    = "Destination";
 const std::string KEY_VOLUME         = "Volume";
-const std::string KEY_MIC_GAIN       = "MicGain";
-
+const std::string KEY_METRIC         = "Metric";
+const std::string KEY_DIM_LEVEL      = "DimLevel";
+const std::string KEY_DIM_TIME		 = "DimTime";
 
 CConf::CConf() :
 m_fileName(),
@@ -48,7 +49,10 @@ m_selfPort(7659U),
 m_channel(),
 m_destination(),
 m_volume(100U),
-m_micGain(100U)
+m_metric(true),
+m_dimLevel(100U),
+m_dimTime(30U)
+
 {
 	char* home = ::getenv("HOME");
 	if (home != NULL) {
@@ -100,8 +104,12 @@ bool CConf::read()
 			m_destination = std::string(val);
 		else if (key == KEY_VOLUME)
 			m_volume = (unsigned int)::atoi(val);
-		else if (key == KEY_MIC_GAIN)
-			m_micGain = (unsigned int)::atoi(val);
+		else if (key == KEY_METRIC)
+			m_metric = ::atoi(val) == 1;
+		else if (key == KEY_DIM_LEVEL)
+			m_dimLevel = (unsigned int)::atoi(val);
+		else if (key == KEY_DIM_TIME)
+			m_dimTime = (unsigned int)::atoi(val);						
 	}
 
 	::fclose(fp);
@@ -174,14 +182,19 @@ void CConf::setVolume(unsigned int value)
 	m_volume = value;
 }
 
-unsigned int CConf::getMicGain() const
+bool CConf::getMetric() const
 {
-	return m_micGain;
+	return m_metric;
 }
 
-void CConf::setMicGain(unsigned int value)
+unsigned int CConf::getDimLevel() const
 {
-	m_micGain = value;
+	return m_dimLevel;
+}
+
+unsigned int CConf::getDimTime() const
+{
+	return m_dimTime;
 }
 
 bool CConf::write()
@@ -197,6 +210,7 @@ bool CConf::write()
 	::fprintf(fp, "%s=%s\n", KEY_SCREEN_PORT.c_str(), m_screenPort.c_str());
 	::fprintf(fp, "%s=%u\n", KEY_SCREEN_SPEED.c_str(), m_screenSpeed);
 
+
 	::fprintf(fp, "%s=%s\n", KEY_DAEMON_ADDRESS.c_str(), m_daemonAddress.c_str());
 	::fprintf(fp, "%s=%u\n", KEY_DAEMON_PORT.c_str(), m_daemonPort);
 
@@ -207,7 +221,11 @@ bool CConf::write()
 	::fprintf(fp, "%s=%s\n", KEY_DESTINATION.c_str(), m_destination.c_str());
 
 	::fprintf(fp, "%s=%u\n", KEY_VOLUME.c_str(), m_volume);
-	::fprintf(fp, "%s=%u\n", KEY_MIC_GAIN.c_str(), m_micGain);
+
+	::fprintf(fp, "%s=%u\n", KEY_METRIC.c_str(), m_metric ? 1U : 0U);
+	
+	::fprintf(fp, "%s=%u\n", KEY_DIM_LEVEL.c_str(), m_dimLevel);
+	::fprintf(fp, "%s=%u\n", KEY_DIM_TIME.c_str(), m_dimTime);
 
 	::fclose(fp);
 

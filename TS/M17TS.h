@@ -25,11 +25,11 @@
 
 #include <vector>
 #include <string>
+#include <optional>
 
 enum SLIDER_ID {
 	SI_NONE,
-	SI_VOLUME,
-	SI_MIC_GAIN
+	SI_VOLUME
 };
 
 class CM17TS
@@ -61,12 +61,17 @@ private:
 
 	SLIDER_ID    m_slider;
 	unsigned int m_volume;
-	unsigned int m_micGain;
 
 	unsigned int m_sMeter;
+	
+	unsigned int m_dimLevel;
+	unsigned int m_dimTime;
 
 	std::string  m_source;
 	std::string  m_text;
+	std::string  m_callsigns;
+
+	bool         m_metric;
 	
 	void parseCommand(char* command);
 	void parseScreen(const uint8_t* command, unsigned int length);
@@ -77,22 +82,26 @@ private:
 	void transmit();
 
 	void showRX(bool end, const std::string& source, const std::string& destination);
-	void showText(const std::string& text);
+	void showText();
+	void showCallsigns();
 	void showRSSI(int value);
+	void showGPS(float latitude, float longitude, const std::string& locator,
+		const std::optional<float>& altitude,
+		const std::optional<float>& speed, const std::optional<float>& track,
+		const std::optional<float>& bearing, const std::optional<float>& distance);
+
+	void drawPointer(float bearing);
 	
 	void volumeChanged();
-	void micGainChanged();
 
 	void gotoPage0();
 	void gotoPage1();
-	void gotoPage2();
 
 	bool getChannels();
 	bool setChannel(const std::string& channel);
 	bool getDestinations();
 	bool setDestination(const std::string& destination);
 	bool setVolume(unsigned int volume);
-	bool setMicGain(unsigned int micGain);
 	bool setTransmit(bool transmit);
 
 	void sendCommand(const char* command);

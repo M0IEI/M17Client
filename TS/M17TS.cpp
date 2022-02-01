@@ -27,6 +27,7 @@
 #include <cassert>
 #include <cstring>
 #include <cstdio>
+#include <cmath>
 
 #include <sys/types.h>
 #include <unistd.h>
@@ -34,12 +35,19 @@
 #include <fcntl.h>
 #include <pwd.h>
 
+#define	DEG2RAD(x)	((x / 180.0F) * 3.14159F)
+#define	RAD2DEG(x)	((x / 3.14159F) * 180.0F)
+
 const char* DELIMITER = ":";
 
 const unsigned int RSSI_BASE = 140U;
 
 static bool m_killed = false;
 static int  m_signal = 0;
+
+const int COMPASS_X = 250;
+const int COMPASS_Y = 180;
+const int COMPASS_R = 140;
 
 static void sigHandler(int signum)
 {
@@ -112,10 +120,14 @@ m_receive(false),
 m_page(0U),
 m_slider(SI_NONE),
 m_volume(50U),
-m_micGain(50U),
 m_sMeter(0U),
+m_dimLevel(100U),
+m_dimTime(30U),
 m_source(),
-m_text()
+m_text(),
+m_callsigns(),
+m_metric(true)
+
 {
 }
 
@@ -228,20 +240,33 @@ int CM17TS::run()
 		return 1;
 	}
 
-	m_volume  = m_conf.getVolume();
-	setVolume(m_volume);
+	m_metric = m_conf.getMetric();
 
-	m_micGain = m_conf.getMicGain();
-	setMicGain(m_micGain);
+	m_volume = m_conf.getVolume();
+	m_dimLevel = m_conf.getDimLevel();
+	m_dimTime = m_conf.getDimTime();
+	setVolume(m_volume);
 
 	LogMessage("M17TS-%s is running", VERSION);
 
 	CTimer timer(1000U, 0U, 100U);
 	timer.start();
+	
+
+		char text[100U];
+		::sprintf(text, "dimLevel=%u", m_dimLevel);
+		sendCommand(text);
+		::sprintf(text, "dimTime=%u", m_dimTime);
+		sendCommand(text);
 
 	sendCommand("bkcmd=2");
 
-	gotoPage2();
+
+
+	gotoPage1();
+
+		::sprintf(text, "TEXT.txt=\"Welcome to M17TS\"");
+		sendCommand(text);
 
 	uint8_t screenBuffer[50U];
 	uint8_t endBuffer[3U] = {0x00U, 0x00U, 0x00U};
@@ -336,16 +361,47 @@ void CM17TS::parseCommand(char* command)
 		showRX(end, source, destination);
 	} else if (::strcmp(ptrs.at(0U), "TX") == 0) {
 		m_transmit = ::atoi(ptrs.at(1U)) == 1;
-		if (m_transmit)
+		if (m_transmit){
+			sendCommand("dim=100");
 			sendCommand("TX.txt=\"TX\"");
+		}
 		else
 			sendCommand("TX.txt=\"\"");
 	} else if (::strcmp(ptrs.at(0U), "TEXT") == 0) {
-		std::string text = std::string(ptrs.at(1U));
-		showText(text);
+		m_text = std::string(ptrs.at(1U));
+		showText();
+	} else if (::strcmp(ptrs.at(0U), "CALLS") == 0) {
+		m_callsigns = std::string(ptrs.at(1U));
+		showCallsigns();
 	} else if (::strcmp(ptrs.at(0U), "RSSI") == 0) {
 		int rssi = ::atoi(ptrs.at(1U));
 		showRSSI(rssi);
+	} else if (::strcmp(ptrs.at(0U), "GPS") == 0) {
+		float latitude   = std::stof(ptrs.at(1U));
+		float longitude  = std::stof(ptrs.at(2U));
+		std::string locator = std::string(ptrs.at(3U));
+
+		std::optional<float> altitude;
+		if (::strlen(ptrs.at(4U)) > 0)
+			altitude = std::stof(ptrs.at(4U));
+
+		std::optional<float> speed;
+		if (::strlen(ptrs.at(5U)) > 0)
+			speed = std::stof(ptrs.at(5U));
+
+		std::optional<float> track;
+		if (::strlen(ptrs.at(6U)) > 0)
+			track = std::stof(ptrs.at(6U));
+
+		std::optional<float> bearing;
+		if (::strlen(ptrs.at(7U)) > 0)
+			bearing = std::stof(ptrs.at(7U));
+
+		std::optional<float> distance;
+		if (::strlen(ptrs.at(8U)) > 0)
+			distance = std::stof(ptrs.at(8U));
+
+		showGPS(latitude, longitude, locator, altitude, speed, track, bearing, distance);
 	}
 }
 
@@ -354,52 +410,39 @@ void CM17TS::parseScreen(const uint8_t* command, unsigned int length)
 	assert(command != NULL);
 
 	if (command[0U] == 0x65U) {
-		if (command[1U] == 0U) {
-			if (command[2U] == 4U) {
-				LogMessage("Page 0 CHAN_UP pressed");
+		if (command[1U] == 1U) {
+			if (command[2U] == 3U) {
+				LogMessage("Page 1 CHAN_UP pressed");
 				channelChanged(+1);
-			} else if (command[2U] == 5U) {
-				LogMessage("Page 0 CHAN_DOWN pressed");
+			} else if (command[2U] == 4U) {
+				LogMessage("Page 1 CHAN_DOWN pressed");
 				channelChanged(-1);
-			} else if (command[2U] == 6U) {
-				LogMessage("Page 0 DEST_UP pressed");
+			} else if (command[2U] == 5U) {
+				LogMessage("Page 1 DEST_UP pressed");
 				destinationChanged(+1);
-			} else if (command[2U] == 7U) {
-				LogMessage("Page 0 DEST_DOWN pressed");
+			} else if (command[2U] == 6U) {
+				LogMessage("Page 1 DEST_DOWN pressed");
 				destinationChanged(-1);
-			} else if (command[2U] == 8U) {
-				LogMessage("Page 0 RIGHT pressed");
+			} else if (command[2U] == 7U) {
+				LogMessage("Page 1 RIGHT pressed");
 				gotoPage1();
-			} else if (command[2U] == 9U) {
-				LogMessage("Page 0 LEFT pressed");
-				gotoPage2();
-			} else {
-				CUtils::dump(2U, "Button press on page 0 from an unknown button", command, length);
-			}
-		} else if (command[1U] == 1U) {
-			if (command[2U] == 2U) {
+			} else if (command[2U] == 8U) {
+				LogMessage("Page 1 LEFT pressed");
+				gotoPage1();
+			} else if (command[2U] == 10U) {
 				LogMessage("Page 1 VOLUME adjusted");
 				volumeChanged();
-			} else if (command[2U] == 3U) {
-				LogMessage("Page 1 MIC_GAIN adjusted");
-				micGainChanged();
-			} else if (command[2U] == 6U) {
-				LogMessage("Page 1 RIGHT pressed");
-				gotoPage2();
-			} else if (command[2U] == 7U) {
-				LogMessage("Page 1 LEFT pressed");
-				gotoPage0();
 			} else {
 				CUtils::dump(2U, "Button press on page 1 from an unknown button", command, length);
 			}
 		} else if (command[1U] == 2U) {
-			if (command[2U] == 2U) {
+			if (command[2U] == 1U) {
 				LogMessage("Page 2 RIGHT pressed");
 				gotoPage0();
-			} else if (command[2U] == 3U) {
+			} else if (command[2U] == 2U) {
 				LogMessage("Page 2 LEFT pressed");
-				gotoPage1();
-			} else if (command[2U] == 4U) {
+				gotoPage0();
+			} else if (command[2U] == 3U) {
 				LogMessage("Page 2 TRANSMIT pressed");
 				transmit();
 			} else {
@@ -413,11 +456,6 @@ void CM17TS::parseScreen(const uint8_t* command, unsigned int length)
 			case SI_VOLUME:
 				m_volume = (uint32_t(command[4U]) << 24) | (uint32_t(command[3U]) << 16) | (uint32_t(command[2U]) << 8) | (uint32_t(command[1U]) << 0);
 				setVolume(m_volume);
-				m_slider = SI_NONE;
-				break;
-			case SI_MIC_GAIN:
-				m_micGain = (uint32_t(command[4U]) << 24) | (uint32_t(command[3U]) << 16) | (uint32_t(command[2U]) << 8) | (uint32_t(command[1U]) << 0);
-				setMicGain(m_volume);
 				m_slider = SI_NONE;
 				break;
 			default:
@@ -489,12 +527,6 @@ void CM17TS::volumeChanged()
 	sendCommand("get VOLUME.val");
 }
 
-void CM17TS::micGainChanged()
-{
-	m_slider = SI_MIC_GAIN;
-	sendCommand("get MIC_GAIN.val");
-}
-
 void CM17TS::transmit()
 {
 	m_localTX = !m_localTX;
@@ -511,29 +543,55 @@ void CM17TS::showRX(bool end, const std::string& source, const std::string& dest
 
 		m_source.clear();
 		m_text.clear();
-
+		m_callsigns.clear();
 		sendCommand("S_METER.val=0");
-		sendCommand("SOURCE.txt=\"\"");
-		sendCommand("TEXT.txt=\"\"");
 		sendCommand("RX.txt=\"\"");
+		
+
+		sendCommand("CALLSIGNS.pco=BLUE");
+		sendCommand("TEXT.pco=BLUE");
+		sendCommand("SOURCE.pco=BLUE");
+		
+		sendCommand("RX.txt=\"\"");
+
+//puts all the others in BLUE and dim screen
+		char text[100U];
+		::sprintf(text, "timer=%u", m_dimTime);
+		sendCommand(text);
+//		::sprintf(text, "dimTime=%u", m_dimTime);
+//		sendCommand(text);
+		
+
 	} else {
 		m_receive = true;
+		gotoPage1();
 		m_source  = source;
+		sendCommand("dim=100");
+		sendCommand("CALLSIGNS.pco=WHITE");
+		sendCommand("TEXT.pco=YELLOW");
+		sendCommand("SOURCE.pco=BLACK");
 
 		char text[100U];
-		::sprintf(text, "SOURCE.txt=\"%s\"", source.c_str());
+		::sprintf(text, "SOURCE.txt=\"%s > %s\"", source.c_str(), destination.c_str());
 		sendCommand(text);
 
 		sendCommand("RX.txt=\"RX\"");
 	}
 }
 
-void CM17TS::showText(const std::string& value)
+void CM17TS::showText()
 {
-	m_text = value;
-
 	char text[100U];
-	::sprintf(text, "TEXT.txt=\"%s\"", value.c_str());
+	::sprintf(text, "TEXT.txt=\"%s\"", m_text.c_str());
+
+	sendCommand(text);
+}
+
+void CM17TS::showCallsigns()
+{
+	char text[100U];
+	::sprintf(text, "CALLSIGNS.txt=\"%s\"", m_callsigns.c_str());
+
 	sendCommand(text);
 }
 
@@ -550,11 +608,123 @@ void CM17TS::showRSSI(int rssi)
 			m_sMeter = 100U;
 	}
 
-	if (m_page == 2U) {
+	if (m_page == 1U) {
 		char text[100U];
 		::sprintf(text, "S_METER.val=%u", m_sMeter);
 		sendCommand(text);
 	}
+}
+
+void CM17TS::showGPS(float latitude, float longitude, const std::string& locator,
+	const std::optional<float>& altitude,
+	const std::optional<float>& speed, const std::optional<float>& track,
+	const std::optional<float>& bearing, const std::optional<float>& distance)
+{
+	sendCommand("page GPS");
+
+	char text[100U];
+
+	if (latitude < 0.0F)
+		::sprintf(text, "LATITUDE.txt=\"%.3f\xB0 S\"", -latitude);
+	else
+		::sprintf(text, "LATITUDE.txt=\"%.3f\xB0 N\"", latitude);
+	sendCommand(text);
+
+	if (longitude < 0.0F)
+		::sprintf(text, "LONGITUDE.txt=\"%.3f\xB0 W\"", -longitude);
+	else
+		::sprintf(text, "LONGITUDE.txt=\"%.3f\xB0 E\"", longitude);
+	sendCommand(text);
+
+	::sprintf(text, "LOCATOR.txt=\"%s\"", locator.c_str());
+	sendCommand(text);
+
+	if (altitude) {
+		if (m_metric)
+			::sprintf(text, "ALTITUDE.txt=\"%.1f m\"", altitude.value());
+		else
+			::sprintf(text, "ALTITUDE.txt=\"%.1f ft\"", altitude.value() * 3.28F);
+
+		sendCommand(text);
+	}
+
+	if (speed && track) {
+		if (m_metric)
+			::sprintf(text, "SPEED.txt=\"%.1f km/h\"", speed.value());
+		else
+			::sprintf(text, "SPEED.txt=\"%.1f mph\"", speed.value() / 1.602F);
+
+		sendCommand(text);
+
+		::sprintf(text, "TRACK.txt=\"%.0f\xB0\"", track.value());
+		sendCommand(text);
+	}
+
+	if (bearing && distance) {
+		::sprintf(text, "BEARING.txt=\"%.0f\xB0\"", bearing.value());
+		sendCommand(text);
+
+		if (m_metric)
+			::sprintf(text, "DISTANCE.txt=\"%.0f km\"", distance.value());
+		else
+			::sprintf(text, "DISTANCE.txt=\"%.0f miles\"", distance.value() / 1.602F);
+
+		sendCommand(text);
+
+//		drawPointer(bearing.value());
+	}
+
+	sendCommand("delay=5000");
+
+sendCommand ("page page1");
+}
+
+void CM17TS::drawPointer(float bearing)
+{
+	char text[100U];
+
+	// Draw the circle
+	::sprintf(text, "cir %d,%d,%d,WHITE", COMPASS_X, COMPASS_Y, COMPASS_R + 10);
+	sendCommand(text);
+
+	// Print the "N"
+	::sprintf(text, "xstr %d,%d,30,30,3,WHITE,BLACK,1,1,1,\"N\"", COMPASS_X - 15, COMPASS_Y - COMPASS_R - 20);
+	sendCommand(text);
+
+	// Draw the lines
+	bearing -= 90.0F;
+
+	float degrees = bearing;
+	float radians = DEG2RAD(degrees);
+	int p1x = COMPASS_X + COMPASS_R * ::cos(radians);
+	int p1y = COMPASS_Y + COMPASS_R * ::sin(radians);
+
+	degrees = bearing + 145.0F;
+	radians = DEG2RAD(degrees);
+	int p2x = COMPASS_X + COMPASS_R * ::cos(radians);
+	int p2y = COMPASS_Y + COMPASS_R * ::sin(radians);
+
+	degrees = bearing + 180.0F;
+	radians = DEG2RAD(degrees);
+	int p3x = COMPASS_X + (COMPASS_R / 2) * ::cos(radians);
+	int p3y = COMPASS_Y + (COMPASS_R / 2) * ::sin(radians);
+
+	degrees = bearing - 145.0F;
+	radians = DEG2RAD(degrees);
+	int p4x = COMPASS_X + COMPASS_R * ::cos(radians);
+	int p4y = COMPASS_Y + COMPASS_R * ::sin(radians);
+
+	::sprintf(text, "line %d,%d,%d,%d,YELLOW", p1x, p1y, p2x, p2y);
+	sendCommand(text);
+
+	::sprintf(text, "line %d,%d,%d,%d,YELLOW", p2x, p2y, p3x, p3y);
+	sendCommand(text);
+
+	::sprintf(text, "line %d,%d,%d,%d,YELLOW", p3x, p3y, p4x, p4y);
+	sendCommand(text);
+
+	::sprintf(text, "line %d,%d,%d,%d,YELLOW", p4x, p4y, p1x, p1y);
+	sendCommand(text);
 }
 
 void CM17TS::gotoPage0()
@@ -562,9 +732,12 @@ void CM17TS::gotoPage0()
 	sendCommand("page page0");
 	m_page = 0U;
 
-	if (!m_destinations.empty()) {
-		char text[100U];
+	char text[100U];
 
+	::sprintf(text, "VOLUME.val=%u", m_volume);
+	sendCommand(text);
+
+	if (!m_destinations.empty()) {
 		::sprintf(text, "CHANNEL.txt=\"%s\"", m_channels.at(m_channelIdx).c_str());
 		sendCommand(text);
 
@@ -580,19 +753,12 @@ void CM17TS::gotoPage1()
 
 	char text[100U];
 
-	::sprintf(text, "VOLUME.val=%u", m_volume);
+	::sprintf(text, "timer=%u", m_dimTime);
 	sendCommand(text);
-
-	::sprintf(text, "MIC_GAIN.val=%u", m_micGain);
-	sendCommand(text);
-}
-
-void CM17TS::gotoPage2()
-{
-	sendCommand("page page2");
-	m_page = 2U;
-
-	char text[100U];
+//			::sprintf(text, "dimLevel=%u", m_dimLevel);
+//		sendCommand(text);
+//				::sprintf(text, "dimTime=%u", m_dimTime);
+//		sendCommand(text);
 
 	if (!m_destinations.empty()) {
 		::sprintf(text, "CHANNEL.txt=\"%s\"", m_channels.at(m_channelIdx).c_str());
@@ -605,8 +771,13 @@ void CM17TS::gotoPage2()
 	::sprintf(text, "SOURCE.txt=\"%s\"", m_source.c_str());
 	sendCommand(text);
 
+	::sprintf(text, "CALLSIGNS.txt=\"%s\"", m_callsigns.c_str());
+	sendCommand(text);
+
 	::sprintf(text, "TEXT.txt=\"%s\"", m_text.c_str());
 	sendCommand(text);
+	
+
 
 	if (m_receive)
 		sendCommand("RX.txt=\"RX\"");
@@ -681,21 +852,6 @@ bool CM17TS::setVolume(unsigned int volume)
 	::strcpy(buffer, "VOL");
 	::strcat(buffer, DELIMITER);
 	::sprintf(buffer + ::strlen(buffer), "%u", volume);
-
-	return m_socket->write(buffer, ::strlen(buffer), m_sockaddr, m_sockaddrLen);
-}
-
-bool CM17TS::setMicGain(unsigned int micGain)
-{
-	assert(m_socket != NULL);
-
-	m_conf.setMicGain(micGain);
-	m_conf.write();
-
-	char buffer[20U];
-	::strcpy(buffer, "MIC");
-	::strcat(buffer, DELIMITER);
-	::sprintf(buffer + ::strlen(buffer), "%u", micGain);
 
 	return m_socket->write(buffer, ::strlen(buffer), m_sockaddr, m_sockaddrLen);
 }
