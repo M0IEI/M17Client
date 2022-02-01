@@ -36,6 +36,7 @@ const std::string KEY_VOLUME         = "Volume";
 const std::string KEY_METRIC         = "Metric";
 const std::string KEY_DIM_LEVEL      = "DimLevel";
 const std::string KEY_DIM_TIME		 = "DimTime";
+const std::string KEY_BRIGHTNESS	 = "Brightness";
 
 CConf::CConf() :
 m_fileName(),
@@ -49,9 +50,10 @@ m_selfPort(7659U),
 m_channel(),
 m_destination(),
 m_volume(100U),
-m_metric(true),
 m_dimLevel(100U),
-m_dimTime(30U)
+m_dimTime(30U),
+m_brightness(100U),
+m_metric(true)
 
 {
 	char* home = ::getenv("HOME");
@@ -104,12 +106,14 @@ bool CConf::read()
 			m_destination = std::string(val);
 		else if (key == KEY_VOLUME)
 			m_volume = (unsigned int)::atoi(val);
-		else if (key == KEY_METRIC)
-			m_metric = ::atoi(val) == 1;
 		else if (key == KEY_DIM_LEVEL)
 			m_dimLevel = (unsigned int)::atoi(val);
 		else if (key == KEY_DIM_TIME)
-			m_dimTime = (unsigned int)::atoi(val);						
+			m_dimTime = (unsigned int)::atoi(val);
+		else if (key == KEY_BRIGHTNESS)
+			m_brightness = (unsigned int)::atoi(val);			
+		else if (key == KEY_METRIC)
+			m_metric = ::atoi(val) == 1;									
 	}
 
 	::fclose(fp);
@@ -182,11 +186,6 @@ void CConf::setVolume(unsigned int value)
 	m_volume = value;
 }
 
-bool CConf::getMetric() const
-{
-	return m_metric;
-}
-
 unsigned int CConf::getDimLevel() const
 {
 	return m_dimLevel;
@@ -196,6 +195,18 @@ unsigned int CConf::getDimTime() const
 {
 	return m_dimTime;
 }
+
+unsigned int CConf::getBrightness() const
+{
+	return m_brightness;
+}
+
+bool CConf::getMetric() const
+{
+	return m_metric;
+}
+
+
 
 bool CConf::write()
 {
@@ -222,10 +233,11 @@ bool CConf::write()
 
 	::fprintf(fp, "%s=%u\n", KEY_VOLUME.c_str(), m_volume);
 
-	::fprintf(fp, "%s=%u\n", KEY_METRIC.c_str(), m_metric ? 1U : 0U);
-	
 	::fprintf(fp, "%s=%u\n", KEY_DIM_LEVEL.c_str(), m_dimLevel);
 	::fprintf(fp, "%s=%u\n", KEY_DIM_TIME.c_str(), m_dimTime);
+	::fprintf(fp, "%s=%u\n", KEY_BRIGHTNESS.c_str(), m_brightness);
+
+	::fprintf(fp, "%s=%u\n", KEY_METRIC.c_str(), m_metric ? 1U : 0U);
 
 	::fclose(fp);
 

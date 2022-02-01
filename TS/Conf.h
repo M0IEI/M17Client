@@ -47,15 +47,12 @@ public:
 
 	void           setVolume(unsigned int value);
 	unsigned int   getVolume() const;
-	
-//PANTALLA
+
 	unsigned int   getDimLevel() const;
-	unsigned int   getDimTime() const;	
-//
+	unsigned int   getDimTime() const;
+	unsigned int   getBrightness() const;
 
 	bool           getMetric() const;
-
-
 
 	bool write();
 
@@ -72,11 +69,11 @@ private:
 	std::string    m_channel;
 	std::string    m_destination;
 	unsigned int   m_volume;
-	bool           m_metric;
-	//PANTALLA
 	unsigned int   m_dimLevel;
-	unsigned int	m_dimTime;
-//
+	unsigned int   m_dimTime;
+	unsigned int   m_brightness;
+	bool           m_metric;
+
 };
 
 #endif

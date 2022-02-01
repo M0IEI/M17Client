@@ -66,6 +66,7 @@ private:
 	
 	unsigned int m_dimLevel;
 	unsigned int m_dimTime;
+	unsigned int m_brightness;
 
 	std::string  m_source;
 	std::string  m_text;

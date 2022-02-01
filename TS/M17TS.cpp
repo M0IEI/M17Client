@@ -245,27 +245,27 @@ int CM17TS::run()
 	m_volume = m_conf.getVolume();
 	m_dimLevel = m_conf.getDimLevel();
 	m_dimTime = m_conf.getDimTime();
+	m_brightness = m_conf.getBrightness();
 	setVolume(m_volume);
 
 	LogMessage("M17TS-%s is running", VERSION);
 
 	CTimer timer(1000U, 0U, 100U);
 	timer.start();
-	
-
+		//pass timer and brightnessconfig to display
 		char text[100U];
 		::sprintf(text, "dimLevel=%u", m_dimLevel);
 		sendCommand(text);
 		::sprintf(text, "dimTime=%u", m_dimTime);
 		sendCommand(text);
+		::sprintf(text, "brightness=%u", m_brightness);
+		sendCommand(text);
 
 	sendCommand("bkcmd=2");
 
-
-
 	gotoPage1();
 
-		::sprintf(text, "TEXT.txt=\"Welcome to M17TS\"");
+		::sprintf(text, "TEXT.txt=\"M17TS %s started\"", VERSION);
 		sendCommand(text);
 
 	uint8_t screenBuffer[50U];
@@ -361,12 +361,30 @@ void CM17TS::parseCommand(char* command)
 		showRX(end, source, destination);
 	} else if (::strcmp(ptrs.at(0U), "TX") == 0) {
 		m_transmit = ::atoi(ptrs.at(1U)) == 1;
+//		char text [100U];
 		if (m_transmit){
-			sendCommand("dim=100");
+//			gotoPage1();
+		//stop dimmer timer
+			sendCommand("dim=brightness");
+			sendCommand("timer=dimTime");
+			sendCommand("tm0.en=0");
+
+/*
+			::sprintf(text, "dim=%u", m_brightness);
+			sendCommand(text);
+			::sprintf(text, "timer=%u", m_dimTime);
+			sendCommand(text)
+*/
 			sendCommand("TX.txt=\"TX\"");
 		}
 		else
 			sendCommand("TX.txt=\"\"");
+/*		//reset timer and start counting
+			::sprintf(text, "timer=%u", m_dimTime);
+			sendCommand(text);
+
+			sendCommand("tm0.en=1");
+*/
 	} else if (::strcmp(ptrs.at(0U), "TEXT") == 0) {
 		m_text = std::string(ptrs.at(1U));
 		showText();
@@ -540,42 +558,40 @@ void CM17TS::showRX(bool end, const std::string& source, const std::string& dest
 		m_receive = false;
 
 		m_sMeter = 0U;
-
 		m_source.clear();
 		m_text.clear();
 		m_callsigns.clear();
+
 		sendCommand("S_METER.val=0");
 		sendCommand("RX.txt=\"\"");
-		
-
+	//set Lastheard colours and reset the dimmer timer
 		sendCommand("CALLSIGNS.pco=BLUE");
 		sendCommand("TEXT.pco=BLUE");
 		sendCommand("SOURCE.pco=BLUE");
-		
-		sendCommand("RX.txt=\"\"");
 
-//puts all the others in BLUE and dim screen
-		char text[100U];
-		::sprintf(text, "timer=%u", m_dimTime);
-		sendCommand(text);
-//		::sprintf(text, "dimTime=%u", m_dimTime);
+//		char text[100U];
+//		::sprintf(text, "timer=%u", m_dimTime);
 //		sendCommand(text);
-		
+		sendCommand("timer=dimTime");
+		sendCommand("tm0.en=1");
+
+
 
 	} else {
 		m_receive = true;
+	//gotoPage1 already sets timer=dimTime and starts the timer
 		gotoPage1();
 		m_source  = source;
-		sendCommand("dim=100");
+	//set colours for active reception
 		sendCommand("CALLSIGNS.pco=WHITE");
 		sendCommand("TEXT.pco=YELLOW");
 		sendCommand("SOURCE.pco=BLACK");
-
 		char text[100U];
 		::sprintf(text, "SOURCE.txt=\"%s > %s\"", source.c_str(), destination.c_str());
 		sendCommand(text);
-
 		sendCommand("RX.txt=\"RX\"");
+		sendCommand("tm0.en=0");
+
 	}
 }
 
@@ -656,12 +672,17 @@ void CM17TS::showGPS(float latitude, float longitude, const std::string& locator
 
 		sendCommand(text);
 
-		::sprintf(text, "TRACK.txt=\"%.0f\xB0\"", track.value());
+	//Nextion gauge element goes from 0 to 360. 0 degrees from GPS=value 90 for gauge
+		float gauge = track.value() + 90;
+		if (gauge>360){gauge=gauge-360;}
+		::sprintf(text, "TRACK.txt=\"%.0f\"", gauge);
 		sendCommand(text);
 	}
 
 	if (bearing && distance) {
-		::sprintf(text, "BEARING.txt=\"%.0f\xB0\"", bearing.value());
+		float gauge = bearing.value() + 90;
+		if (gauge>360){gauge=gauge-360;}
+		::sprintf(text, "BEARING.txt=\"%.0f\"", gauge);
 		sendCommand(text);
 
 		if (m_metric)
