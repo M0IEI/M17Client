@@ -252,7 +252,7 @@ int CM17TS::run()
 
 	CTimer timer(1000U, 0U, 100U);
 	timer.start();
-		//pass timer and brightnessconfig to display
+		//pass timer and brightness config to display
 		char text[100U];
 		::sprintf(text, "dimLevel=%u", m_dimLevel);
 		sendCommand(text);
@@ -361,30 +361,17 @@ void CM17TS::parseCommand(char* command)
 		showRX(end, source, destination);
 	} else if (::strcmp(ptrs.at(0U), "TX") == 0) {
 		m_transmit = ::atoi(ptrs.at(1U)) == 1;
-//		char text [100U];
 		if (m_transmit){
-//			gotoPage1();
-		//stop dimmer timer
+			
+		//High bright, reset dim time and stop countdown
 			sendCommand("dim=brightness");
 			sendCommand("timer=dimTime");
 			sendCommand("tm0.en=0");
-
-/*
-			::sprintf(text, "dim=%u", m_brightness);
-			sendCommand(text);
-			::sprintf(text, "timer=%u", m_dimTime);
-			sendCommand(text)
-*/
+			
 			sendCommand("TX.txt=\"TX\"");
 		}
 		else
 			sendCommand("TX.txt=\"\"");
-/*		//reset timer and start counting
-			::sprintf(text, "timer=%u", m_dimTime);
-			sendCommand(text);
-
-			sendCommand("tm0.en=1");
-*/
 	} else if (::strcmp(ptrs.at(0U), "TEXT") == 0) {
 		m_text = std::string(ptrs.at(1U));
 		showText();
@@ -568,10 +555,6 @@ void CM17TS::showRX(bool end, const std::string& source, const std::string& dest
 		sendCommand("CALLSIGNS.pco=BLUE");
 		sendCommand("TEXT.pco=BLUE");
 		sendCommand("SOURCE.pco=BLUE");
-
-//		char text[100U];
-//		::sprintf(text, "timer=%u", m_dimTime);
-//		sendCommand(text);
 		sendCommand("timer=dimTime");
 		sendCommand("tm0.en=1");
 
@@ -691,7 +674,7 @@ void CM17TS::showGPS(float latitude, float longitude, const std::string& locator
 			::sprintf(text, "DISTANCE.txt=\"%.0f miles\"", distance.value() / 1.602F);
 
 		sendCommand(text);
-
+// do not draw the pointer
 //		drawPointer(bearing.value());
 	}
 
