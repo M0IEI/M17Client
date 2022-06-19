@@ -196,7 +196,7 @@ int CM17TS::run()
 		}
 	}
 
-	ret = ::LogInitialise(m_daemon, ".", "M17TS", 1U, 1U, true);
+	ret = ::LogInitialise(m_daemon, ".", "M17TS", 0U, 0U, true);
 	if (!ret) {
 		::fprintf(stderr, "M17TS: unable to open the log file\n");
 		return 1;
